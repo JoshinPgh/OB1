@@ -3,6 +3,7 @@ ob1_server.py — OB1 Memory System
 JSG Labs / Geldrich Corp
 
 The receiver. Always-on local HTTP server on port 5150.
+Runs on 851Office-1 Ubuntu headless server (192.168.1.41).
 Accepts turn data from ATR (via ob1_capture.js), buffers them,
 triggers digest compression at the right moments.
 
@@ -19,12 +20,15 @@ Trigger logic:
         3. BUFFER_FLUSH_MINUTES have passed since last digest (default 30 min)
 
 Output:
-    M:/Geldrich_Corp_Active/Systems_and_Specifications/OB1/session_digest.md
-    (configurable via DIGEST_PATH below)
+    /mnt/OB1/session_digest.md  (on 851Office-1 USB drive)
+
+Network:
+    Home:      http://192.168.1.41:5150
+    Tailscale: http://100.105.169.111:5150
 
 Zero external dependencies. Pure Python stdlib.
-Development mode — run manually: python ob1_server.py
-Production: wrap with NSSM as a Windows service when stable.
+Development mode — run manually: python3 ob1_server.py
+Production: wrap with systemd service when stable.
 """
 
 import json
@@ -41,10 +45,11 @@ from ob1_digest import build_digest
 # ---------------------------------------------------------------------------
 
 PORT                 = 5150
-BUFFER_FLUSH_TURNS   = 20      # auto-flush after this many turns
-BUFFER_FLUSH_MINUTES = 30      # auto-flush after this many minutes of inactivity
-DIGEST_PATH          = r"M:\Geldrich_Corp_Active\Systems_and_Specifications\OB1\session_digest.md"
-LOG_PATH             = r"M:\Geldrich_Corp_Active\Systems_and_Specifications\OB1\ob1_server.log"
+HOST                 = "0.0.0.0"   # listen on all interfaces so network clients reach it
+BUFFER_FLUSH_TURNS   = 20          # auto-flush after this many turns
+BUFFER_FLUSH_MINUTES = 30          # auto-flush after this many minutes of inactivity
+DIGEST_PATH          = "/mnt/OB1/session_digest.md"
+LOG_PATH             = "/mnt/OB1/ob1_server.log"
 
 # ---------------------------------------------------------------------------
 # SHARED STATE
@@ -277,7 +282,7 @@ def run():
     log("Watchdog thread started.")
 
     # Start server
-    server = HTTPServer(("localhost", PORT), OB1Handler)
+    server = HTTPServer((HOST, PORT), OB1Handler)
     log(f"OB1 listening on http://localhost:{PORT}")
     log("Endpoints: POST /turn | POST /flush | GET /status | GET /digest")
     log("Press Ctrl+C to stop.\n")
